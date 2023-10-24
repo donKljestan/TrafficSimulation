@@ -7,6 +7,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import org.unibl.etf.pj2.Config;
 import org.unibl.etf.pj2.Simulation;
 import org.unibl.etf.pj2.coordinates.*;
 import org.unibl.etf.pj2.railwayStation.*;
@@ -16,7 +17,7 @@ public class Composition extends Thread {
 
 	private static int index = 1;
 	private String name;
-	private Coordinates coordinates; //set i get
+	private Coordinates coordinates;
 	private ArrayList<Locomotive> locomotives = new ArrayList<>();
 	private ArrayList<Wagon> wagons = new ArrayList<>();
 	private int speed;
@@ -96,7 +97,7 @@ public class Composition extends Thread {
 	
 	
 	
-	/*Proverava validnost konfiguracije.*/
+	/*Checks that the configuration is valid.*/
 	public boolean configurationValidity() {
 		HashMap <String, Boolean> cv = new HashMap<String, Boolean>();
 		
@@ -115,11 +116,11 @@ public class Composition extends Thread {
 		}
 		
 		for(Wagon v : this.wagons) {
-			if(v.hashCode() == 3) {
+			if(v instanceof PassengerWagon) {
 				cv.put("PASSENGER", true);
-			} else if(v.hashCode() == 4) {
+			} else if(v instanceof FreightWagon) {
 				cv.put("FREIGHT", true);
-			} else if(v.hashCode() == 5) {
+			} else if(v instanceof ShuntingWagon) {
 				cv.put("SHUNTING", true);
 			}
 		}
@@ -130,8 +131,8 @@ public class Composition extends Thread {
 		return false;
 	}
 	
-	/*Ucitava novu kompoziciju iz fajla na koji pokazuje 'bf'. Ako konfiguracija nije ispravna
-	 * bacice izuzetak.  */
+	/*Loads a new composition from the file 'bf' points to. Throws an exception if the configuration
+	 * is not valid.  */
 	private void readComposition(BufferedReader bf) throws Exception {
 		
 		String[] data;
@@ -366,45 +367,12 @@ public class Composition extends Thread {
 	}
 	
 	private void serializeTrajectory() throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
+		File file = new File(Config.get(Config.MOVEMENTS), this.name + ".ser");
+		try (ObjectOutputStream out = new ObjectOutputStream(new FileOutputStream(file))) {
+			out.writeObject(this.trajectory);
+		} catch (IOException ex) {
+			throw new Exception("Object serialization failed.");
 		}
-		
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("MOVEMENTS DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder in which the serialized movements of the compositions are located.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder in which the serialized movements of the compositions are located.");
-		}
-
-		try
-        {   
-            FileOutputStream file = new FileOutputStream(data + File.separator + this.name + ".ser");
-            ObjectOutputStream out = new ObjectOutputStream(file);
-            out.writeObject(this.trajectory);
-            out.close();
-            file.close();
-        }
-        catch(IOException ex)
-        {
-            throw new Exception("Object serialization failed.");
-        }
-		
 	}
 
 	private void setTrajectory() {
@@ -428,61 +396,61 @@ public class Composition extends Thread {
 				setTrajectory();
 				Thread.sleep(speed);
 				
-				/*Provera da li je kompozicija stigla na stanicu prema kojoj se kretala.*/
+				/*Check whether the composition has reached the station it was heading to.*/
 				if(nextStation.atTheStation(this.coordinates.getLastX(), this.coordinates.getLastY())) {
 					
 					enteringTheStation();
 					previousStation = nextStation;
 					
-					/*Ovim kompozicija govori ostalim objektima da je zavrsila kretanje po odgovarajucoj liniji. */
+					/*The composition tells the other objects it has finished moving along the line. */
 					(Simulation.Lines.get(line)).countDown(); 
 					
 					speed = normalSpeed;
 					this.coordinates = new Coordinates(this.lengthOfTheComposition);
 					
-					/*Kompozicija dobija upute prema kojoj narednoj zeljeznickoj stanici treba da krene.*/
+					/*The composition gets directions to the next station it has to head to.*/
 					nextStation = previousStation.getDirections(destinationStation);
 					line = String.valueOf(previousStation.getStation() + "-" +
 							String.valueOf(nextStation.getStation()));
 					
-					/*Kompozicija govori da krece na odgovarajucu deonicu i da se pruzni prelazi na toj deonici zatvore za vozila.*/
+					/*The composition announces it is entering the segment, so the level crossings on it are closed for vehicles.*/
 					setCountDownLatchLevelCrossing();
 					
 			
-					/*Kompozicija dobija koordinate za izlaz iz trenutne zeljeznicke stanice. */
+					/*The composition gets the coordinates for leaving the current station. */
 					this.coordinates = previousStation.setExitCoordination(nextStation, lengthOfTheComposition);
 					
 			
 					Thread.sleep(previousStation.getSleep());
 					
-					/*Provera da li je deonica zauzeta.*/
+					/*Check whether the segment is occupied.*/
 					if((Simulation.Lines.get(line)).getCount() != 0) { 
-						//deonica zauzeta, kreni usporenom brzinom
+						//segment occupied, move at the slowed speed
 						while(Simulation.map[this.coordinates.getLastX()][this.coordinates.getLastY()] != null) {
 							Thread.sleep(100);
 						}
 						speed = slowedSpeed;
-					} /*Voz dolazi iz suprotnog pravca*/
+					} /*A train is coming from the opposite direction*/
 					else if((Simulation.Lines.get
 							(new StringBuilder(line).reverse().toString())).getCount() != 0) {
 						(Simulation.Lines.get(new StringBuilder(line).reverse().toString())).await();
 					
 					}
-					/*Kompozicija obavestava ostale objekte da zauzima odgovarajucu deonicu. */
+					/*The composition tells the other objects it occupies the segment. */
 					Simulation.Lines.put(line, new CountDownLatch(((int)(Simulation.Lines.get(line)).getCount() + 1)));
 					
 					writeOnMap();
 					Thread.sleep(2000);
 				}
-				/*Proverava se da li je kompozicija presla pruzni prelaz ako on postoji na deonici kojom se kompozicija krece. */
+				/*Check whether the composition has passed a level crossing, if the segment has one. */
 				nextStation.checkRailwayCrossing(previousStation, this.coordinates.getFirstX(), this.coordinates.getFirstY(), speed, isElectric);
 				
 				removeFromMap();
-				/*Kompozicija od zeljeznicke stanice prema kojoj se krece dobija koordinate za kretanje. */
+				/*The composition gets its next coordinates from the station it is heading to. */
 				this.coordinates.add(nextStation.incrementPosition(previousStation, this.coordinates.getLastX(), this.coordinates.getLastY()));
 				writeOnMap();
 				
-				/*Provera da li je kompozicija stigla na odrediste. */
+				/*Check whether the composition has reached its destination. */
 				if(ArrivedAtDestination()) {
 					enteringTheStation();
 					finish = true;

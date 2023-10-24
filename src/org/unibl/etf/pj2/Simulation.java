@@ -3,223 +3,86 @@ package org.unibl.etf.pj2;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
 import org.unibl.etf.pj2.railwayStation.*;
-import org.unibl.etf.pj2.vechile.*;
+import org.unibl.etf.pj2.vehicle.LoadVehicle;
 import org.unibl.etf.pj2.composition.LoadComposition;
 import org.unibl.etf.pj2.coordinates.*;
+import org.unibl.etf.pj2.display.Display;
 import org.unibl.etf.pj2.display.StartFrame;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.awt.EventQueue;
 import java.io.*;
+import java.nio.file.Files;
 
 public class Simulation {
 	
 	public static final int SIZE_OF_MAP_X = 30;
 	public static final int SIZE_OF_MAP_Y = 30;
 	public static Object[][] map = new Object[SIZE_OF_MAP_X][SIZE_OF_MAP_Y];
-	public static final String CONFIGURATION_FILE_PATH = System.getProperty("user.dir") + File.separator + "configuration.txt";
 	public static HashMap<String, CountDownLatch> Lines = new HashMap<String, CountDownLatch>();
 	public static HashMap<String, CountDownLatch> LevelCrossing = new HashMap<String, CountDownLatch>();
 	public static final HashMap<String, RailwayStation> RailwayStations = loadRailwayStations();
 			
-	/*Ucitava zeljeznicke stanice u HashMapu. */
+	/*Loads the railway stations into a HashMap. */
 	private static HashMap<String,RailwayStation> loadRailwayStations() {
 		HashMap<String, RailwayStation> railwayStations = new HashMap<String, RailwayStation>();
 		
 		try {
-			
-			BufferedReader bf = null;
-			try {
-				bf = new BufferedReader(new FileReader(
-					new File(Simulation.CONFIGURATION_FILE_PATH)));
-			} catch (Exception e) {
-				throw new Exception("Failed opening 'configuration.txt'.");
-			}
-
-			String data;
-			while((data = bf.readLine()) != null) {
-				if((data.split("::")[0]).equalsIgnoreCase("COORDINATES OF RAILWAY STATIONS DIRECTORY")) {
-					if(data.split("::").length == 1) {
-						bf.close();
-						throw new Exception("In the 'configuration.txt' document there is no path to the "
-								+ "folder with the coordinates of the railways.");
-					} 
-					data = (data.split("::")[1]);
-					break;
-				}
-			}
-			if(data == null) {
-				bf.close();
-				throw new Exception("In the 'configuration.txt' document there is no path to the "
-						+ "folder with the coordinates of the railways.");
-			}
-			
-			try {
-				File f = new File(data);
-				for(String s : f.list()) {
-					bf = new BufferedReader(new FileReader(
-							new File(data + File.separator + s)));
-					String tmp[] = (bf.readLine()).split(":");
-					Coordinates coordinate = new Coordinates(tmp.length);
-					for(String st : tmp) {
-						coordinate.addX(Integer.valueOf(st.split(",")[0]));
-						coordinate.addY(Integer.valueOf(st.split(",")[1]));
-					}
-					railwayStations.put(s.substring(0, s.indexOf(".")), 
-					new RailwayStation(Station.valueOf(s.substring(0, s.indexOf("."))), coordinate));
-				}
-				return railwayStations;
-			} catch (Exception e) {
+			File dir = new File(Config.get(Config.RAILWAY_STATIONS));
+			String[] files = dir.list();
+			if(files == null) {
 				throw new Exception("Error opening documents with train station coordinates.");
-			}	
+			}
+			for(String s : files) {
+				String name = s.substring(0, s.indexOf("."));
+				String tmp[] = Files.readAllLines(new File(dir, s).toPath()).get(0).split(":");
+				Coordinates coordinate = new Coordinates(tmp.length);
+				for(String st : tmp) {
+					coordinate.addX(Integer.valueOf(st.split(",")[0]));
+					coordinate.addY(Integer.valueOf(st.split(",")[1]));
+				}
+				railwayStations.put(name, new RailwayStation(Station.valueOf(name), coordinate));
+			}
+			return railwayStations;
 		} catch (Exception e) {
 			Logger.getLogger(Simulation.class.getName()).log(Level.SEVERE,e.toString());
+			throw new IllegalStateException(e);
 		}
-		return null;
 	}
 	
-	/*Ucitava dionice u HashMapu. */
+	/*Loads the line segments into a HashMap. */
 	private static void loadLines() throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
+		String[] files = new File(Config.get(Config.RAILWAY_COORDINATES)).list();
+		if(files == null) {
+			throw new Exception("Error opening the folder with the coordinates of the railways.");
 		}
-		
-		String data;
-		try {
-			while((data = bf.readLine()) != null) {
-				if((data.split("::")[0]).equalsIgnoreCase("RAILWAY COORDINATE DIRECTORY")) {
-					if(data.split("::").length == 1) {
-						bf.close();
-						throw new Exception("In the 'configuration.txt' document there is no path to the "
-								+ "folder with the coordinates of the railways.");
-					} 
-					data = (data.split("::")[1]);
-					break;
-				}
-			}
-			if(data == null) {
-				bf.close();
-				throw new Exception("In the 'configuration.txt' document there is no path to the "
-						+ "folder with the coordinates of the railways.");
-			}
-			
-			File f = new File(data);
-			for(String s : f.list()) {
-				Simulation.Lines.put(s.substring(0, s.indexOf(".")), new CountDownLatch(0));
-			}
-			Simulation.Lines.put(null, new CountDownLatch(0));
-		} catch (Exception e) {
-			Logger.getLogger(Simulation.class.getName()).log(Level.SEVERE,e.toString());
+		for(String s : files) {
+			Simulation.Lines.put(s.substring(0, s.indexOf(".")), new CountDownLatch(0));
 		}
+		Simulation.Lines.put(null, new CountDownLatch(0));
 	}
 	
-	/*Ucitava pruzne prelaze u HashMapu.*/
-	private static void loadLevelCrossing() throws Exception{
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
+	/*Loads the level crossings into a HashMap.*/
+	private static void loadLevelCrossing() throws Exception {
+		File dir = new File(Config.get(Config.LEVEL_CROSSINGS));
+		String[] lines = dir.list();
+		if(lines == null) {
+			throw new Exception("Error opening the folder with the coordinates of the level crossings.");
 		}
-		
-		String data;
-		try {
-			while((data = bf.readLine()) != null) {
-				if((data.split("::")[0]).equalsIgnoreCase("LEVEL CROSSINGS DIRECTORY")) {
-					if((data.split("::").length == 1)) {
-						bf.close();
-						throw new Exception("In the 'configuration.txt' document there is no path to the "
-								+ "folder with the coordinates of the level crossings.");
-					} 
-					data = (data.split("::")[1]);
-					break;
-				}
+		for(String s : lines) {
+			for(String sd : new File(dir, s).list()) {
+				Simulation.LevelCrossing.put(s + ":" + sd.substring(0, sd.indexOf(".")), new CountDownLatch(0));
 			}
-			if(data == null) {
-				bf.close();
-				throw new Exception("In the 'configuration.txt' document there is no path to the "
-						+ "folder with the coordinates of the level crossings.");
-			}
-			
-			File f = new File(data);
-			for(String s : f.list()) {
-				File fd = new File(data + File.separator + s);
-				for(String sd : fd.list()) {
-					Simulation.LevelCrossing.put(s + ":" + sd.substring(0, sd.indexOf(".")), new CountDownLatch(0));
-				}
-			}
-			Simulation.LevelCrossing.put(null, new CountDownLatch(0));
-		} catch (Exception e) {
-			Logger.getLogger(Simulation.class.getName()).log(Level.SEVERE,e.toString());
 		}
+		Simulation.LevelCrossing.put(null, new CountDownLatch(0));
 	}
 	
-	/*Brise stare konfiguracije kompozicija.*/
-	private static void clearTrainsFolder() throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
+	/*Creates the folder if it does not exist, otherwise deletes the old files in it.*/
+	private static void clearFolder(String key) throws Exception {
+		File dir = new File(Config.get(key));
+		if(!dir.isDirectory() && !dir.mkdirs()) {
+			throw new Exception("Unable to create the folder '" + dir.getPath() + "'.");
 		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("TRAINS")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder 'TRAINS'.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder 'TRAINS'.");
-		}
-		File dir = new File(data);
-		for(File f : dir.listFiles()) {
-			f.delete();
-		}
-	}
-
-	/*Brise stara serijalizovana kretanja.*/
-	private static void clearMovementsFolder() throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("MOVEMENTS DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder 'MOVEMENTS'.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder 'MOVEMENTS'.");
-		}
-		File dir = new File(data);
 		for(File f : dir.listFiles()) {
 			f.delete();
 		}
@@ -229,8 +92,8 @@ public class Simulation {
 	
 		
 		try {
-			clearTrainsFolder();
-			clearMovementsFolder();
+			clearFolder(Config.TRAINS);
+			clearFolder(Config.MOVEMENTS);
 			loadLines();
 			loadLevelCrossing();
 			
@@ -239,6 +102,9 @@ public class Simulation {
 					try {
 						StartFrame frame = new StartFrame();
 						frame.setVisible(true);
+						if(Boolean.getBoolean("simulation.autostart")) {
+							new Display().start();
+						}
 					} catch (Exception e) {
 						Logger.getLogger(Simulation.class.getName()).log(Level.SEVERE,e.toString());
 					}
@@ -248,7 +114,7 @@ public class Simulation {
 			LoadComposition lc = new LoadComposition();
 			lc.start();
 				
-			LoadVechile lv = new LoadVechile();
+			LoadVehicle lv = new LoadVehicle();
 			lv.start();
 
 		} catch(Exception e) {

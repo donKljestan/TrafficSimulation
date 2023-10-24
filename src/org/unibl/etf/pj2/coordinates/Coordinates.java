@@ -32,12 +32,12 @@ public class Coordinates implements Serializable  {
 		positionsY.add(y);
 	}
 	
-	/*Ispituje da li se koordinate x i y nalaze u positionsX i positionsY.*/
+	/*Checks whether the coordinates x and y are contained in positionsX and positionsY.*/
 	public boolean checkCoordinates(Integer x, Integer y) {
 		return (positionsX.contains(x) && positionsY.contains(y));
-		//napomena: posto su zeljeznicke stanice kvadratnog oblika ovo je ispravno
-		//ako zeljeznicke stanice nisu kvadratnog oblika funkcija treba da vrati true
-		//samo u slucaju da se x i y sadrze na istom indeksu u positionsX i positionsY
+		//note: since railway stations are square, this is correct
+		//if the stations were not square, the method should return true
+		//only when x and y are found at the same index in positionsX and positionsY
 	}
 	
 	public Integer getLastX() {

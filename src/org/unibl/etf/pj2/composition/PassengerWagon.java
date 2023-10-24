@@ -15,10 +15,6 @@ public final class PassengerWagon extends Wagon {
 		this.gadget = gadget;
 		this.type = type;
 	}
-	@Override
-	public int hashCode() {
-		return 3;
-	}
 	public Gadget getGadget() {
 		return gadget;
 	}

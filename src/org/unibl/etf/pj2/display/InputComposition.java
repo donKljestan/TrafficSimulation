@@ -3,10 +3,8 @@ package org.unibl.etf.pj2.display;
 import java.awt.EventQueue;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileOutputStream;
-import java.io.FileReader;
 import java.io.PrintWriter;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -20,6 +18,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextField;
 import javax.swing.border.EmptyBorder;
 
+import org.unibl.etf.pj2.Config;
 import org.unibl.etf.pj2.Simulation;
 import org.unibl.etf.pj2.composition.*;
 
@@ -62,34 +61,8 @@ public class InputComposition extends JFrame {
 	public static void writeInFile() {
 
 		try {
-		BufferedReader bf = null;
 		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("TRAINS")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder 'TRAINS'.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder 'TRAINS'.");
-		}
-		
-		try {
-			File f = new File(data);
+			File f = new File(Config.get(Config.TRAINS));
 			PrintWriter pw = new PrintWriter(new FileOutputStream(
 					new File(f.getPath() + File.separator + f.list().length + ".txt")));
 			pw.print(String.valueOf(composition.getNumberOfLocomotives() + ","));

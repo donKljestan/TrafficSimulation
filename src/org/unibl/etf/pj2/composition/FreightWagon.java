@@ -12,10 +12,6 @@ public final class FreightWagon extends Wagon {
 		super(length, mark);
 		this.maxCapacity = maxCapacity;
 	}
-	@Override
-	public int hashCode() {
-		return 4;
-	}
 	public int getMaxCapacity() {
 		return maxCapacity;
 	}

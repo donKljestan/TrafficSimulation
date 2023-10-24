@@ -1,10 +1,8 @@
 package org.unibl.etf.pj2.display;
 
 import java.awt.BorderLayout;
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileReader;
 import java.io.ObjectInputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -15,7 +13,7 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextPane;
 import javax.swing.border.EmptyBorder;
 
-import org.unibl.etf.pj2.Simulation;
+import org.unibl.etf.pj2.Config;
 import org.unibl.etf.pj2.composition.Trajectory;
 
 public class Movements extends JFrame {
@@ -45,44 +43,15 @@ public class Movements extends JFrame {
 	}
 private  String getText() throws Exception{
 		
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-		
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("MOVEMENTS DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder in which the serialized movements of the compositions are located.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder in which the serialized movements of the compositions are located.");
-		}
-		bf.close();
-		
 		String text = "";
-		File f = new File(data);
+		File f = new File(Config.get(Config.MOVEMENTS));
 		for(String s : f.list()) {
-			try
+			if(!s.endsWith(".ser")) {
+				continue;
+			}
+			try (ObjectInputStream in = new ObjectInputStream(new FileInputStream(new File(f, s))))
 	        {   
-				
-				FileInputStream file = new FileInputStream(new File(f.getPath() + File.separator + s));
-				ObjectInputStream in = new ObjectInputStream(file);
 				Trajectory trajectory = (Trajectory)in.readObject();
-				in.close();
-				file.close();
 				text += "\n\n" + s.substring(0, s.indexOf(".")) + ":\n\n";
 				text += trajectory.toString();
 				

@@ -15,10 +15,6 @@ public abstract class Wagon {
 			this.mark = mark;
 		}
 		
-		@Override
-		public int hashCode() {
-			return 3;
-		}
 		public int getLength() {
 			return length;
 		}

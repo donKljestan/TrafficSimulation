@@ -13,7 +13,7 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 
-import org.unibl.etf.pj2.Simulation;
+import org.unibl.etf.pj2.Config;
 
 public class LoadComposition extends Thread {
 
@@ -22,32 +22,7 @@ public class LoadComposition extends Thread {
 	}
 	
 	public String getPathDirectory() throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("TRAINS")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder 'TRAINS'.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder 'TRAINS'.");
-		}
-		return data;
+		return Config.get(Config.TRAINS);
 	}
 	
 	public void run() {
@@ -66,12 +41,14 @@ public class LoadComposition extends Thread {
 				
 				for (WatchEvent<?> event : key.pollEvents()) {
 					WatchEvent.Kind<?> kind = event.kind();
-					BufferedReader bf = new BufferedReader(new FileReader(new File(
-							getPathDirectory() + File.separator + event.context())));
-					Composition c = new Composition(bf);
-					c.start();
-					Thread.sleep(100);
-					bf.close();
+					try (BufferedReader bf = new BufferedReader(new FileReader(new File(
+							getPathDirectory() + File.separator + event.context())))) {
+						Composition c = new Composition(bf);
+						c.start();
+						Thread.sleep(100);
+					} catch (Exception e) {
+						Logger.getLogger(LoadComposition.class.getName()).log(Level.SEVERE,e.toString());
+					}
 				}
 				
 				boolean valid = key.reset();

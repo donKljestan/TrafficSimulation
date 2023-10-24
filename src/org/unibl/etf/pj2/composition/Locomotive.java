@@ -21,11 +21,6 @@ public class Locomotive {
 		this.engine = engine;
 	}
 	
-	@Override
-	public int hashCode() {
-		return this.engine == LocomotiveEngine.ELECTRIC ? 1 : 2;
-	}
-	
 	public void setPower(int power) {
 		this.power = power;
 	}

@@ -1,18 +1,24 @@
 package org.unibl.etf.pj2.railwayStation;
 
-
-import java.io.BufferedReader;
 import java.io.File;
-import java.io.FileReader;
+import java.nio.file.Files;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
+import org.unibl.etf.pj2.Config;
 import org.unibl.etf.pj2.Simulation;
 import org.unibl.etf.pj2.coordinates.*;
 
 public class RailwayStation {
 
+	private static final Map<String, List<int[]>> CROSSINGS = new ConcurrentHashMap<>();
+	private static List<String> directions;
+	private static int sl = 1000;
+
 	private Station station;
 	private final Coordinates COORDINATES;
-	private static int sl = 1000;
 	
 	public RailwayStation(Station station, Coordinates COORDINATES) {
 		super();
@@ -26,322 +32,127 @@ public class RailwayStation {
 	public Coordinates getCoordinates() {
 		return this.COORDINATES;
 	}
+
+	private File line(RailwayStation from, RailwayStation to) throws Exception {
+		return new File(Config.get(Config.RAILWAY_COORDINATES), from.getStation() + "-" + to.getStation() + ".txt");
+	}
 	
-	/*Postavljaju se koordinate za izlaz voza sa trenutne stanice prema sledecoj stanici.
-	 * Trenutna stanica poziva funkciju i kao argument prosledjuje sledecu stanicu.
-	 * Argument 'length' oznacava duzinu kompozicije. */
-	//positionX = positionsX.getLast()
-	
-	public synchronized Coordinates setExitCoordination(RailwayStation nextStation, int length) throws Exception {
-		
+	/*Sets the coordinates for a train leaving the current station towards the next station.
+	 * The current station calls this method and passes the next station as the argument.
+	 * The 'length' argument is the length of the composition. */
+	public Coordinates setExitCoordination(RailwayStation nextStation, int length) throws Exception {
+		int[] first = CoordinateFiles.load(line(this, nextStation)).get(0);
 		Coordinates coordinates = new Coordinates(length);
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
+		for(int i=0; i < length; i++) {
+			coordinates.setPositionsX(i, first[0]);
+			coordinates.setPositionsY(i, first[1]);
 		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("RAILWAY COORDINATE DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder with the coordinates of the railways.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder with the coordinates of the railways.");
-		}
-		try {
-				bf = new BufferedReader(new FileReader(
-					new File(data + File.separator + String.valueOf(this.getStation()) + 
-					 "-" + String.valueOf(nextStation.getStation()) + ".txt")));
-		} catch (Exception e) {
-			throw new Exception("Falied opening '" +  String.valueOf(this.getStation()) + 
-					 "-" + String.valueOf(nextStation.getStation()) + "'." );
-		}
-			
-			try {
-				String[] tmp = (bf.readLine()).split(",");
-				if(tmp.length != 2)
-				{
-					throw new Exception();
-				}
-				for(int i=0; i < length; i++)
-				{
-					coordinates.setPositionsX(i, Integer.valueOf(tmp[0]));
-					coordinates.setPositionsY(i, Integer.valueOf(tmp[1]));
-				}
-				bf.close();
-				return coordinates;
-			
-		} catch (Exception e) {
-		  throw new Exception("The coordinates in the '" + String.valueOf(this.getStation()) + 
-					 "-" + String.valueOf(nextStation.getStation()) + "' document are not specified in "
-					 		+ "the correct format.");
-		}
+		return coordinates;
 	}
 
-	/*Postavljaju se nove koordinate kompozicije na zadatoj putanji. Sledeca stanica
-	 * poziva funkciju i kao argument prosledjuje stanicu sa koje je kompozicija krenula. 
-	 * Argumenti 'positionX' i 'positionY' pokazuju trenutnu poziciju kompozicije. */
-	//x = positionsX.getLast()
-	public synchronized Coordinates incrementPosition(RailwayStation previousStation, int positionX, int positionY) throws Exception {
-		
-		Coordinates coordinates = new Coordinates(1);
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
+	/*Sets the new coordinates of the composition on the given line. The next station
+	 * calls this method and passes the station the composition started from. 
+	 * 'positionX' and 'positionY' are the current position of the composition. */
+	public Coordinates incrementPosition(RailwayStation previousStation, int positionX, int positionY) throws Exception {
+		int[] next = CoordinateFiles.next(CoordinateFiles.load(line(previousStation, this)), positionX, positionY);
+		if(next == null) {
+			throw new Exception("The composition is at the end of the railway line " + 
+					previousStation.getStation() + "-" + this.getStation() + ".");
 		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("RAILWAY COORDINATE DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder with the coordinates of the railways.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder with the coordinates of the railways.");
-		}
-		
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(data + File.separator + String.valueOf(previousStation.getStation()) + 
-				 "-" + String.valueOf(this.getStation()) + ".txt")));
-		} catch (Exception e) {
-			throw new Exception("Falied opening '" +  String.valueOf(previousStation.getStation()) + 
-					 "-" + String.valueOf(this.getStation()) + "'." );
-		}
-		
-		try {
-		while((data = bf.readLine()) != null) {
-			String[] tmp = data.split(",");
-			if(tmp.length != 2)
-			{
-				bf.close();
-				throw new Exception();
-			}
-			if(
-				Integer.valueOf(tmp[0]) == positionX && 
-				Integer.valueOf(tmp[1]) == positionY) {
-				data = bf.readLine();
-
-				tmp = data.split(",");
-				coordinates.addX(Integer.valueOf(tmp[0]));
-				coordinates.addY(Integer.valueOf(tmp[1]));
-				
-				bf.close();
-				return coordinates;
-			}
-		}
-		} catch (Exception e) {
-		  throw new Exception("The coordinates in the '" + String.valueOf(previousStation.getStation()) + 
-					 "-" + String.valueOf(this.getStation()) + "' document are not specified in "
-				 		+ "the correct format.");
-		}
-		throw new Exception("Coordinates (" + String.valueOf(positionX) + "," + String.valueOf(positionY) +
-				" are not located on the railway line.");
+		return new Coordinates(next[0], next[1]);
 	}
 
 
-	/*Sledeca stanica koju kompozicija treba da poseti poziva funkciju i vraca 'true' 
-	 * ako je kompozicija pristigla na nju.*/
-	//positionX = positionsX.getLast()
+	/*The next station the composition has to visit calls this method; it returns 'true' 
+	 * if the composition has arrived at it.*/
 	public synchronized boolean atTheStation(Integer positionX, Integer positionY) {
 		return this.COORDINATES.checkCoordinates(positionX, positionY);
 	}
 	
 
-	/*Zeljeznicka stanica na kojoj se nalazi kompozicija poziva funkciju. Funkcija vraca 
-	 * sledecu zeljeznicku stanicu koju kompozicija treba da poseti na putu do odredista.*/
-	public synchronized RailwayStation getDirections(RailwayStation finalDestination) throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("DIRECTIONS FOR THE NEXT STATIONS")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "file with directions to the next stations.");
-				} 
-				data = (data.split("::")[1]);
-				break;
+	private static synchronized List<String> loadDirections() throws Exception {
+		if(directions == null) {
+			try {
+				directions = Files.readAllLines(new File(Config.get(Config.DIRECTIONS)).toPath());
+			} catch (java.io.IOException e) {
+				throw new Exception("Failed opening the 'Directions' document.");
 			}
 		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "file with directions to the next stations.");
-		}
-		
+		return directions;
+	}
+
+	/*The station the composition is currently at calls this method. It returns 
+	 * the next station the composition has to visit on its way to the destination.*/
+	public RailwayStation getDirections(RailwayStation finalDestination) throws Exception {
 		try {
-			bf = new BufferedReader(new FileReader(
-				new File(data)));
-		} catch (Exception e) {
-			throw new Exception("Falied opening '"
-					+ "/DIRECTIONS FOR THE NEXT STATIONS/Directions.txt'");
-		}
-		
-		try {
-		while((data = bf.readLine()) != null) {
-		String[] tmp = data.split("->");
-		if((String.valueOf(this.getStation())).equals(String.valueOf(tmp[0])) &&
-			(String.valueOf(finalDestination.getStation())).equals(String.valueOf((tmp[1]).charAt(0)))) {
-					
-				tmp = data.split(":");
-				bf.close();
-				return Simulation.RailwayStations.get(tmp[1]);		
+			for(String data : loadDirections()) {
+				String[] tmp = data.split("->");
+				if(this.getStation().toString().equals(tmp[0]) &&
+					finalDestination.getStation().toString().equals(String.valueOf(tmp[1].charAt(0)))) {
+					return Simulation.RailwayStations.get(data.split(":")[1]);
 				}
 			}
-		} catch (Exception e) {
-		  throw new Exception("The coordinates in the 'Directions' document are not specified in "
+		} catch (RuntimeException e) {
+			throw new Exception("The coordinates in the 'Directions' document are not specified in "
 				 		+ "the correct format.");
 		}
-		bf.close();
 		return null;
 	}
 
-	/*Vozovi izlaze sa stanice na svaku sekundu.*/
-	public synchronized long getSleep() {
+	/*Departure delay of a train leaving the station (1 to 4 s, rotating).*/
+	public long getSleep() {
+		return nextSleep();
+	}
+
+	private static synchronized long nextSleep() {
 		sl = sl > 3000 ? 1000 : (sl + 1000); 
 		return sl;
 	}
 	
-	
-	/*Vraca broj pruznih prelaza na odgovarajucoj liniji. 
-	 * Funkciju poziva zeljeznicka stanica prema kojoj se kompozicija krece a kao argument
-	 * prosledjuje poslednja stanica na kojoj je kompozicija bila.*/
-	public synchronized int numberRailwayCrossing(RailwayStation previousStation) throws Exception {
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("LEVEL CROSSINGS DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder with the coordinates of the level crossings.");
-				} 
-				data = (data.split("::")[1]);
-				break;
+	/*Level crossing coordinates on the line from 'previousStation' to this station.*/
+	private List<int[]> crossings(RailwayStation previousStation) throws Exception {
+		String name = previousStation.getStation() + "-" + this.getStation();
+		List<int[]> result = CROSSINGS.get(name);
+		if(result == null) {
+			File dir = new File(Config.get(Config.LEVEL_CROSSINGS), name);
+			String[] files = dir.list();
+			result = new ArrayList<>();
+			if(files != null) {
+				for(int i = 1; i <= files.length; i++) {
+					result.add(CoordinateFiles.load(new File(dir, i + ".txt")).get(0));
+				}
 			}
+			CROSSINGS.put(name, result);
 		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder with the coordinates of the level crossings.");
-		}
-		
-		File f = null;
-		try { 
-			f = new File(data + File.separator + String.valueOf(previousStation.getStation()) + "-" +
-					String.valueOf(this.getStation()));
-		} catch (Exception e) {
-			throw new Exception("Failed open '" +String.valueOf(previousStation.getStation()) + "-" +
-					String.valueOf(this.getStation()) + "'");
-		}
-		return f.list().length;
+		return result;
+	}
+	
+	/*Returns the number of level crossings on the line. 
+	 * Called by the station the composition is heading to, with
+	 * the last station the composition visited as the argument.*/
+	public int numberRailwayCrossing(RailwayStation previousStation) throws Exception {
+		return crossings(previousStation).size();
 	}
 
-	/*Funkciju poziva zeljeznicka stanica prema kojoj se kompozicija krece.
-	 * Kao argument prosledjuje se poslednja zeljeznicka stanica na kojoj je kompozcija bila.
-	 * Argumenti 'x' i 'y' predstavljaju trenutnu lokaciju kompozicije a 'speed' brzinu
-	 * kojom se kompozicija krece. Funkcija ispituje da li je kompozicija presla pruzni 
-	 * prelaz a ako nije, postavice zabranu kretanja za automobile koji cekaju na 
-	 * odgovarajucem pruznom prelazu.*/
-	public synchronized void checkRailwayCrossing(RailwayStation previousStation,
+	/*Called by the station the composition is heading to.
+	 * The argument is the last station the composition visited.
+	 * 'x' and 'y' are the current location of the composition and 'speed' is the speed
+	 * at which it moves. Checks whether the composition has passed a level 
+	 * crossing; once it has, the vehicles waiting at 
+	 * the corresponding level crossing are released.*/
+	public void checkRailwayCrossing(RailwayStation previousStation,
 			Integer x, Integer y, int speed, boolean isElectric) throws Exception {
-		
-		BufferedReader bf = null;
-		try {
-			bf = new BufferedReader(new FileReader(
-				new File(Simulation.CONFIGURATION_FILE_PATH)));
-		} catch (Exception e) {
-			throw new Exception("Failed opening 'configuration.txt'.");
-		}
-
-		String data;
-		while((data = bf.readLine()) != null) {
-			if((data.split("::")[0]).equalsIgnoreCase("LEVEL CROSSINGS DIRECTORY")) {
-				if(data.split("::").length == 1) {
-					bf.close();
-					throw new Exception("In the 'configuration.txt' document there is no path to the "
-							+ "folder with the coordinates of the level crossings.");
-				} 
-				data = (data.split("::")[1]);
-				break;
-			}
-		}
-		if(data == null) {
-			bf.close();
-			throw new Exception("In the 'configuration.txt' document there is no path to the "
-					+ "folder with the coordinates of the level crossings.");
-		}
-		for(int i = 1; i <= this.numberRailwayCrossing(previousStation); i++) {
-			try {
-				bf = new BufferedReader(new FileReader(
-						new File(data + File.separator + String.valueOf(previousStation.getStation()) + 
-								"-" + String.valueOf(this.getStation()) + 
-								File.separator + String.valueOf(i)) + ".txt"));
-				} catch (Exception e) {
-					bf.close();
-					throw new Exception("Failed opening '" + data + File.separator + String.valueOf(previousStation.getStation()) + 
-							"-" + String.valueOf(this.getStation()) + 
-							File.separator + String.valueOf(i) + "'.");
-				}
-			try {
-				String[] tmp = (bf.readLine()).split(",");
-				bf.close();
-				if(x == Integer.valueOf(tmp[0]) && y == Integer.valueOf(tmp[1])) {
+		List<int[]> crossings = crossings(previousStation);
+		for(int i = 0; i < crossings.size(); i++) {
+			int[] crossing = crossings.get(i);
+			if(x == crossing[0] && y == crossing[1]) {
+				Thread.sleep(speed);
+				if(isElectric) {
 					Thread.sleep(speed);
-					if(isElectric) {
-						Thread.sleep(speed);
-					}
-					(Simulation.LevelCrossing.get(String.valueOf(previousStation.getStation()) + 
-						"-" + String.valueOf(this.getStation()) + ":" +
-							String.valueOf(i))).countDown();
 				}
-				
-			} catch(Exception e) {
-				bf.close();
-				throw new Exception("The coordinates in the '" + data + File.separator + String.valueOf(previousStation.getStation()) + 
-						"-" + String.valueOf(this.getStation()) + 
-						File.separator + String.valueOf(i) + "' document are not specified in "
-				 		+ "the correct format.");
+				Simulation.LevelCrossing.get(previousStation.getStation() + "-" + 
+						this.getStation() + ":" + (i + 1)).countDown();
 			}
-			bf.close();
 		}
 	}
 

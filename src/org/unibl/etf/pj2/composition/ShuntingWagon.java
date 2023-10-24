@@ -14,8 +14,4 @@ public final class ShuntingWagon extends Wagon {
 	public String toString() {
 		return "\nShuntingWagon: " + mark + "\nLength: " + length;
 	}
-	@Override
-	public int hashCode() {
-		return 5;
-	}
 }

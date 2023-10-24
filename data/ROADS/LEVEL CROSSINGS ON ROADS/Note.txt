@@ -1,0 +1,2 @@
+The North-South direction has one level crossing, B-C:1 and C-B:1
+*1 is the level crossing number, because there can be more than one level crossing

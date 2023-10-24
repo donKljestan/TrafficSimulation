@@ -1,0 +1,7 @@
+bin/
+*.class
+
+# Generated at runtime; the folders are created on start
+data/TRAINS/
+data/MOVEMENTS/
+data/.stage
